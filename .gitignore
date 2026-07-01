@@ -1,0 +1,13 @@
+# Secrets — never commit the real API key
+openai_key.txt
+
+# OS / editor cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/

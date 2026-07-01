@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>좌표 찍기 · 지도 마커 좌표 추출기</title>
+<link rel="stylesheet" href="vendor/pretendard/pretendard.css" />
+<style>
+  :root{
+    --kw-navy:#003876;
+    --kw-navy-deep:#002a59;
+    --kw-cyan:#00A8E1;
+    --kw-cyan-soft:#e6f7fd;
+    --kw-bg:#f4f7fb;
+    --kw-ink:#0b1f3a;
+    --kw-ink-2:#3b5575;
+    --kw-ink-3:#6a7e9a;
+    --kw-line:#e3eaf3;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+    background:var(--kw-bg);
+    color:var(--kw-ink);
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:-0.01em;
+    display:flex; flex-direction:column;
+  }
+  header{
+    flex:0 0 auto;
+    display:flex; align-items:center; gap:14px;
+    padding:14px 22px;
+    background:#fff;
+    border-bottom:1px solid var(--kw-line);
+  }
+  header .logo{
+    font-weight:800; font-size:15px; color:var(--kw-navy);
+    display:flex; align-items:center; gap:9px;
+  }
+  header .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--kw-cyan);}
+  header .sub{font-size:12px;color:var(--kw-ink-3);font-weight:500;}
+  header .spacer{flex:1;}
+  .btn{
+    appearance:none; border:1px solid var(--kw-line); background:#fff;
+    color:var(--kw-navy); font-weight:600; font-size:12.5px;
+    padding:8px 13px; border-radius:9px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+    transition:background .15s, border-color .15s, box-shadow .15s;
+  }
+  .btn:hover{background:var(--kw-cyan-soft);border-color:#cfe9f5;}
+  .btn.primary{background:var(--kw-cyan);border-color:var(--kw-cyan);color:#fff;}
+  .btn.primary:hover{background:#0095c7;}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--kw-ink-2);}
+  .btn.ghost:hover{background:#eef3f9;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  main{flex:1; display:flex; min-height:0;}
+
+  /* ---- left: canvas ---- */
+  .stage{
+    flex:1; min-width:0; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    padding:18px; overflow:hidden;
+  }
+  .drop{
+    width:100%; height:100%;
+    border:2px dashed #c4d3e6; border-radius:18px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; color:var(--kw-ink-3); text-align:center;
+    background:repeating-linear-gradient(45deg,#fbfdff,#fbfdff 12px,#f4f8fd 12px,#f4f8fd 24px);
+    transition:border-color .15s, background .15s;
+  }
+  .drop.hot{border-color:var(--kw-cyan);background:var(--kw-cyan-soft);}
+  .drop h2{margin:0;font-size:18px;color:var(--kw-navy);font-weight:800;}
+  .drop p{margin:0;font-size:13px;line-height:1.6;}
+  .drop .kbd{font-size:11px;background:#fff;border:1px solid var(--kw-line);border-radius:6px;padding:2px 6px;color:var(--kw-ink-2);}
+
+  /* zoomable map viewport — fills the stage */
+  .viewport{
+    position:absolute; inset:0;
+    border-radius:14px; overflow:hidden; background:#eef4f8;
+    box-shadow:0 30px 80px -30px rgba(0,40,90,.4);
+    cursor:crosshair; touch-action:none;
+  }
+  .viewport #mapimg{position:absolute; user-select:none; -webkit-user-drag:none; max-width:none;}
+  .mklayer{position:absolute; inset:0; pointer-events:none; z-index:3;}
+  /* zoom controls */
+  .zoomctl{position:absolute; right:12px; bottom:12px; z-index:6; display:flex; flex-direction:column; gap:6px;}
+  .zoomctl button{
+    width:34px; height:34px; border-radius:9px; border:1px solid var(--kw-line);
+    background:rgba(255,255,255,.93); backdrop-filter:blur(6px); color:var(--kw-navy);
+    font-size:19px; font-weight:700; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px -8px rgba(0,40,90,.5);
+  }
+  .zoomctl button:hover{background:#fff; border-color:#cfe9f5;}
+  .zoomctl .pct{
+    font-size:10.5px; font-weight:700; text-align:center; color:var(--kw-ink-2);
+    background:rgba(255,255,255,.93); border:1px solid var(--kw-line); border-radius:7px;
+    padding:3px 0; font-variant-numeric:tabular-nums;
+  }
+
+  /* marker bubbles over image — white circle, colored ring + icon */
+  .mk{
+    position:absolute; width:28px; height:28px; border-radius:50%;
+    background:#fff; border:2.5px solid var(--kw-cyan); transform:translate(-50%,-50%);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 10px rgba(0,40,90,.4); cursor:grab; z-index:3; pointer-events:auto;
+  }
+  .mk svg{pointer-events:none;}
+  .mk:active{cursor:grabbing;}
+  .mk.sel{outline:3px solid rgba(0,168,225,.5); outline-offset:2px; z-index:4;}
+  /* exact-point center dot */
+  .mk .ctr{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(0,40,90,.55);pointer-events:none;}
+  .mk .tag{
+    position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%);
+    background:var(--kw-navy); color:#fff; font-size:10.5px; font-weight:700;
+    padding:2px 7px; border-radius:6px; white-space:nowrap; pointer-events:none;
+    box-shadow:0 4px 12px -4px rgba(0,40,90,.5);
+  }
+  .mk .tag::after{content:"";position:absolute;left:50%;bottom:-3px;width:6px;height:6px;background:inherit;transform:translateX(-50%) rotate(45deg);}
+
+  /* crosshair guides */
+  .cross-v,.cross-h{position:absolute;background:rgba(0,168,225,.55);pointer-events:none;z-index:2;display:none;}
+  .cross-v{width:1px;top:0;bottom:0;}
+  .cross-h{height:1px;left:0;right:0;}
+
+  /* live readout */
+  .readout{
+    position:absolute; left:14px; top:14px; z-index:5;
+    background:rgba(0,40,90,.82); color:#fff; font-size:12px; font-weight:600;
+    padding:6px 11px; border-radius:9px; font-variant-numeric:tabular-nums;
+    backdrop-filter:blur(6px); pointer-events:none;
+  }
+  .readout b{color:var(--kw-cyan);}
+
+  /* magnifier loupe */
+  .loupe{
+    position:absolute; right:14px; top:14px; z-index:5;
+    width:132px; height:132px; border-radius:12px; overflow:hidden;
+    border:2px solid #fff; box-shadow:0 8px 24px -6px rgba(0,40,90,.5);
+    display:none; background:#eef4f8;
+  }
+  .loupe canvas{display:block;width:100%;height:100%;}
+  .loupe .lx{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(0,168,225,.9);transform:translateX(-50%);}
+  .loupe .ly{position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(0,168,225,.9);transform:translateY(-50%);}
+
+  /* ---- right: panel ---- */
+  aside{
+    flex:0 0 360px; background:#fff; border-left:1px solid var(--kw-line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  aside .sec{padding:16px 18px;border-bottom:1px solid var(--kw-line);}
+  aside .sec h3{margin:0 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--kw-ink-3);font-weight:800;}
+  aside .hint{font-size:12px;color:var(--kw-ink-3);line-height:1.6;}
+  .szwrap{display:flex;flex-direction:column;gap:9px;margin-top:6px;}
+  .szrow{display:flex;align-items:center;gap:10px;}
+  .szrow label{flex:0 0 92px;font-size:12px;font-weight:600;color:var(--kw-ink-2);}
+  .szrow label b{color:var(--kw-cyan);font-variant-numeric:tabular-nums;}
+  .szrow input[type=range]{flex:1;accent-color:var(--kw-cyan);height:4px;cursor:pointer;}
+
+  .list{flex:1;overflow:auto;padding:8px 12px;}
+  .list:empty::after{content:"아직 찍은 좌표가 없어요.\A지도를 클릭해 점을 추가하세요.";white-space:pre;color:var(--kw-ink-3);font-size:12.5px;display:block;text-align:center;padding:28px 10px;}
+  .row{
+    border:1px solid var(--kw-line); border-radius:11px; padding:10px;
+    margin-bottom:9px; background:#fbfdff;
+  }
+  .row.sel{border-color:var(--kw-cyan);box-shadow:0 0 0 3px var(--kw-cyan-soft);}
+  .row .top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .row .num{
+    flex:0 0 auto;width:22px;height:22px;border-radius:6px;color:#fff;font-size:11px;
+    font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  .row .nm{flex:1;min-width:0;border:1px solid var(--kw-line);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:700;color:var(--kw-navy);}
+  .row .del{flex:0 0 auto;border:none;background:#fdeef0;color:#c0334a;border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;}
+  .row .del:hover{background:#fbdfe3;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .grid label{font-size:10.5px;color:var(--kw-ink-3);font-weight:700;display:block;margin-bottom:2px;}
+  .grid input,.grid select{width:100%;border:1px solid var(--kw-line);border-radius:7px;padding:5px 7px;font-size:12px;font-family:inherit;color:var(--kw-ink);background:#fff;}
+  .grid input:focus,.grid select:focus,.row .nm:focus{outline:none;border-color:var(--kw-cyan);box-shadow:0 0 0 2px var(--kw-cyan-soft);}
+  .grid .full{grid-column:1 / -1;}
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--kw-ink-2);font-weight:600;margin-top:7px;}
+
+  .output{padding:14px 16px;border-top:1px solid var(--kw-line);background:#fafcff;}
+  .output textarea{
+    width:100%; height:130px; resize:vertical; border:1px solid var(--kw-line);
+    border-radius:9px; padding:10px; font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-size:11.5px; line-height:1.55; color:var(--kw-ink); background:#fff;
+  }
+  .output .bar{display:flex;gap:8px;margin-top:9px;}
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--kw-navy); color:#fff; font-size:13px; font-weight:600;
+    padding:10px 18px; border-radius:999px; opacity:0; transition:all .25s; pointer-events:none; z-index:50;
+    box-shadow:0 12px 30px -8px rgba(0,40,90,.5);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span class="dot"></span>좌표 찍기</div>
+    <span class="sub">지도 이미지를 올리고 클릭하면 <b>x · y (%)</b> 좌표를 뽑아줍니다 — Dashboard의 SITES 형식으로 복사</span>
+    <span class="spacer"></span>
+    <button class="btn" id="btnLoad">이미지 열기</button>
+    <button class="btn ghost" id="btnClear" disabled>전체 지우기</button>
+    <input type="file" id="file" accept="image/*" hidden />
+  </header>
+
+  <main>
+    <div class="stage" id="stage">
+      <div class="drop" id="drop">
+        <h2>지도 이미지를 여기로 끌어놓으세요</h2>
+        <p>또는 <span class="kbd">이미지 열기</span> 버튼 클릭 · <span class="kbd">Ctrl+V</span> 로 붙여넣기<br/>
+           이미지를 올린 뒤 원하는 위치를 클릭하면 마커가 추가됩니다.</p>
+      </div>
+    </div>
+
+    <aside>
+      <div class="sec">
+        <h3>사용법</h3>
+        <div class="hint">
+          ① 지도 클릭 → 점 추가<br/>
+          ② 점을 <b>드래그</b>해 미세 조정 (또는 우측 x·y 직접 입력)<br/>
+          ③ 이름·아이콘·색상 지정 후 아래 코드 <b>복사</b><br/>
+          ④ Dashboard.html의 <code>MARKER + JUAM_REG_SITES</code> 자리에 붙여넣기
+        </div>
+      </div>
+      <div class="sec">
+        <h3>마커 크기</h3>
+        <div class="szwrap">
+          <div class="szrow"><label>버블 <b id="szBubbleV">36</b>px</label><input type="range" id="szBubble" min="20" max="80" step="1" value="36"/></div>
+          <div class="szrow"><label>아이콘 <b id="szIconV">14</b>px</label><input type="range" id="szIcon" min="8" max="44" step="1" value="14"/></div>
+          <div class="szrow"><label>텍스트 <b id="szTextV">11</b>px</label><input type="range" id="szText" min="8" max="22" step="0.5" value="11"/></div>
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+      <div class="output">
+        <h3 style="margin:0 0 7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--kw-ink-3);font-weight:800;">출력 (MARKER + JUAM_REG_SITES)</h3>
+        <textarea id="out" readonly spellcheck="false"></textarea>
+        <div class="bar">
+          <button class="btn primary" id="btnCopy" style="flex:1;justify-content:center;" disabled>코드 복사</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* tone palette — must match Dashboard.html toneColor keys/values */
+const TONES = {
+  forest: { ring:"#7BB47A", icon:"#2f7d4f" },
+  plum:   { ring:"#A06B7A", icon:"#7a3a52" },
+  cyan:   { ring:"#00A8E1", icon:"#0286b3" },
+  violet: { ring:"#9098C9", icon:"#4a55a8" },
+  amber:  { ring:"#E0A436", icon:"#b3760c" },
+  coral:  { ring:"#E0736B", icon:"#b33b32" },
+  teal:   { ring:"#3FB6A6", icon:"#1f8a78" },
+  rose:   { ring:"#D98AB0", icon:"#b34d80" },
+  slate:  { ring:"#6B7B9C", icon:"#3a4a6b" },
+  lime:   { ring:"#A6C557", icon:"#6f8f1f" },
+};
+
+/* icon set — keys & SVG inner-markup must match Dashboard.html SiteGlyph */
+const ICON_SVG = {
+  plaza:    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+  park:     '<circle cx="12" cy="9" r="5"/><path d="M12 14v7"/><path d="M8 21h8"/>',
+  dam:      '<path d="M5 4v16"/><path d="M19 4v16"/><path d="M5 11c2.3 1.4 4.7 1.4 7 0s4.7-1.4 7 0"/><path d="M5 16c2.3 1.4 4.7 1.4 7 0s4.7-1.4 7 0"/>',
+  mine:     '<path d="M3 21h18"/><path d="M4 21v-6a8 8 0 0 1 16 0v6"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/>',
+  building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4"/><path d="M18 9h2a2 2 0 0 1 2 2v11h-4"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+  road:     '<path d="M4 21 9 3"/><path d="M20 21 15 3"/><path d="M12 5v3M12 11v3M12 17v3"/>',
+};
+const ICONS = [
+  { k:"plaza",    ko:"광장" },
+  { k:"park",     ko:"공원" },
+  { k:"dam",      ko:"댐" },
+  { k:"mine",     ko:"갱" },
+  { k:"building", ko:"건물" },
+  { k:"road",     ko:"진입로" },
+];
+function iconSvg(kind, color, size){
+  const inner = ICON_SVG[kind] || ICON_SVG.plaza;
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+
+let points = [];   // {id,name,x,y,icon,tone,primary,href}
+let selId = null;
+let seq = 0;
+let sz = { bubble:36, icon:14, text:11 };  // marker sizing in px (exported as MARKER)
+
+/* zoom / pan view state */
+let view = { zoom:1, panX:0, panY:0 };
+let baseFit = null;        // contained-fit rect of image in viewport (px)
+let panning = false;
+let pressStart = null;
+let roView = null;
+
+let imgEl = null;          // visible <img>
+let srcCanvas = null;      // offscreen full-res image for the loupe
+let natW = 0, natH = 0;
+
+const stage = document.getElementById("stage");
+const drop  = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const listEl = document.getElementById("list");
+const outEl  = document.getElementById("out");
+const toastEl= document.getElementById("toast");
+const btnClear = document.getElementById("btnClear");
+const btnCopy  = document.getElementById("btnCopy");
+
+/* ---------- file loading ---------- */
+document.getElementById("btnLoad").onclick = () => fileInput.click();
+fileInput.onchange = e => { if(e.target.files[0]) loadFile(e.target.files[0]); };
+
+["dragenter","dragover"].forEach(ev => stage.addEventListener(ev, e=>{e.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev => stage.addEventListener(ev, e=>{e.preventDefault();drop.classList.remove("hot");}));
+stage.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files[0];
+  if(f && f.type.startsWith("image/")) loadFile(f);
+});
+window.addEventListener("paste", e=>{
+  const items = e.clipboardData?.items || [];
+  for(const it of items){ if(it.type.startsWith("image/")){ loadFile(it.getAsFile()); break; } }
+});
+
+function loadFile(file){
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => { mountImage(img, url); };
+  img.src = url;
+}
+
+function mountImage(img, url){
+  natW = img.naturalWidth; natH = img.naturalHeight;
+  // offscreen full-res canvas for the magnifier
+  srcCanvas = document.createElement("canvas");
+  srcCanvas.width = natW; srcCanvas.height = natH;
+  srcCanvas.getContext("2d").drawImage(img, 0, 0);
+
+  stage.innerHTML = `
+    <div class="viewport" id="viewport">
+      <img id="mapimg" src="${url}" alt="map" draggable="false"/>
+      <div class="mklayer" id="mklayer"></div>
+      <div class="cross-v" id="cv"></div>
+      <div class="cross-h" id="ch"></div>
+      <div class="readout" id="readout">이미지 위에서 클릭해 좌표를 찍으세요 · 휠로 확대</div>
+      <div class="loupe" id="loupe"><canvas width="264" height="264"></canvas><div class="lx"></div><div class="ly"></div></div>
+      <div class="zoomctl">
+        <button id="zIn" title="확대 (휠 ↑)">+</button>
+        <button id="zOut" title="축소 (휠 ↓)">−</button>
+        <button id="zReset" title="원래대로"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+        <div class="pct" id="zoomPct">100%</div>
+      </div>
+    </div>`;
+  imgEl = document.getElementById("mapimg");
+  view = { zoom:1, panX:0, panY:0 };
+  computeBase();
+  bindViewport();
+  if(roView) roView.disconnect();
+  roView = new ResizeObserver(()=>{ computeBase(); applyView(); });
+  roView.observe(document.getElementById("viewport"));
+  btnClear.disabled = false;
+  render();
+}
+
+/* ---------- zoom / pan geometry ---------- */
+function computeBase(){
+  const vp = document.getElementById("viewport");
+  if(!vp || !natW) return;
+  const w = vp.clientWidth, h = vp.clientHeight;
+  const scale = Math.min(w/natW, h/natH);
+  const rw = natW*scale, rh = natH*scale;
+  baseFit = { left:(w-rw)/2, top:(h-rh)/2, width:rw, height:rh };
+}
+function disp(){
+  if(!baseFit) return null;
+  const w = baseFit.width*view.zoom, h = baseFit.height*view.zoom;
+  const cx = baseFit.left + baseFit.width/2, cy = baseFit.top + baseFit.height/2;
+  return { left: cx - w/2 + view.panX, top: cy - h/2 + view.panY, width:w, height:h };
+}
+function layoutImg(){
+  const d = disp(); if(!d || !imgEl) return d;
+  imgEl.style.left=d.left+"px"; imgEl.style.top=d.top+"px";
+  imgEl.style.width=d.width+"px"; imgEl.style.height=d.height+"px";
+  return d;
+}
+function placeMarkers(d){
+  d = d || disp(); if(!d) return;
+  const layer = document.getElementById("mklayer"); if(!layer) return;
+  [...layer.children].forEach((el,i)=>{
+    const p = points[i]; if(!p) return;
+    el.style.left=(d.left + d.width*p.x/100)+"px";
+    el.style.top =(d.top  + d.height*p.y/100)+"px";
+  });
+}
+function updateZoomPct(){ const el=document.getElementById("zoomPct"); if(el) el.textContent=Math.round(view.zoom*100)+"%"; }
+function applyView(){
+  const d = layoutImg();
+  placeMarkers(d);
+  updateZoomPct();
+  const vp = document.getElementById("viewport");
+  if(vp) vp.style.cursor = panning ? "grabbing" : (view.zoom>1 ? "grab" : "crosshair");
+}
+function zoomAt(factor, mx, my){
+  if(!baseFit) return;
+  const z = view.zoom, nz = Math.min(8, Math.max(1, z*factor));
+  if(nz === z) return;
+  const b = baseFit;
+  const cx = b.left + b.width/2, cy = b.top + b.height/2;
+  const curLeft = cx - b.width*z/2 + view.panX, curTop = cy - b.height*z/2 + view.panY;
+  const fx = (mx-curLeft)/(b.width*z), fy = (my-curTop)/(b.height*z);
+  if(nz === 1){ view.panX=0; view.panY=0; }
+  else {
+    view.panX = (mx - fx*b.width*nz) - (cx - b.width*nz/2);
+    view.panY = (my - fy*b.height*nz) - (cy - b.height*nz/2);
+  }
+  view.zoom = nz;
+  applyView();
+}
+function zoomBtn(factor){ const vp=document.getElementById("viewport"); if(vp) zoomAt(factor, vp.clientWidth/2, vp.clientHeight/2); }
+
+/* ---------- canvas interaction (zoom · pan · pick) ---------- */
+function pctFromClient(cx, cy){
+  const r = imgEl.getBoundingClientRect();
+  return { x: clamp((cx - r.left)/r.width*100), y: clamp((cy - r.top)/r.height*100), r };
+}
+function overImage(cx, cy){
+  const r = imgEl.getBoundingClientRect();
+  return cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom;
+}
+function bindViewport(){
+  const vp = document.getElementById("viewport");
+  const cv = document.getElementById("cv"), ch = document.getElementById("ch");
+  const readout = document.getElementById("readout");
+  const loupe = document.getElementById("loupe");
+  const lctx = loupe.firstElementChild.getContext("2d");
+  const HINT = "이미지 위에서 클릭해 좌표를 찍으세요 · 휠로 확대";
+
+  document.getElementById("zIn").onclick  = ()=> zoomBtn(1.25);
+  document.getElementById("zOut").onclick = ()=> zoomBtn(0.8);
+  document.getElementById("zReset").onclick = ()=>{ view={zoom:1,panX:0,panY:0}; applyView(); };
+
+  vp.addEventListener("wheel", e=>{
+    e.preventDefault();
+    const r = vp.getBoundingClientRect();
+    zoomAt(e.deltaY < 0 ? 1.15 : 1/1.15, e.clientX - r.left, e.clientY - r.top);
+  }, { passive:false });
+
+  vp.addEventListener("pointerdown", e=>{
+    if(e.target.closest(".zoomctl") || e.target.closest(".mk")) return;
+    vp.setPointerCapture(e.pointerId);
+    pressStart = { cx:e.clientX, cy:e.clientY, panX:view.panX, panY:view.panY, moved:false };
+  });
+
+  vp.addEventListener("pointermove", e=>{
+    if(pressStart){
+      const dx = e.clientX-pressStart.cx, dy = e.clientY-pressStart.cy;
+      if(!pressStart.moved && Math.hypot(dx,dy) > 5) pressStart.moved = true;
+      if(pressStart.moved && view.zoom > 1){
+        panning = true;
+        view.panX = pressStart.panX + dx; view.panY = pressStart.panY + dy;
+        applyView();
+      }
+    }
+    if(panning){ cv.style.display=ch.style.display="none"; loupe.style.display="none"; return; }
+    // hover crosshair + readout + loupe
+    if(!overImage(e.clientX, e.clientY)){
+      cv.style.display=ch.style.display="none"; loupe.style.display="none";
+      readout.textContent = HINT; return;
+    }
+    const vr = vp.getBoundingClientRect();
+    const p = pctFromClient(e.clientX, e.clientY);
+    cv.style.display = ch.style.display = "block";
+    cv.style.left = (e.clientX-vr.left)+"px"; ch.style.top = (e.clientY-vr.top)+"px";
+    readout.innerHTML = `x: <b>${fmt(p.x)}</b>%　y: <b>${fmt(p.y)}</b>%`;
+    drawLoupe(lctx, loupe, p);
+  });
+
+  const end = e=>{
+    if(pressStart && !pressStart.moved && overImage(e.clientX, e.clientY)){
+      const p = pctFromClient(e.clientX, e.clientY);
+      addPoint(p.x, p.y);
+    }
+    pressStart = null; panning = false;
+    vp.style.cursor = view.zoom>1 ? "grab" : "crosshair";
+  };
+  vp.addEventListener("pointerup", end);
+  vp.addEventListener("pointercancel", end);
+  vp.addEventListener("pointerleave", ()=>{
+    cv.style.display=ch.style.display="none"; loupe.style.display="none"; readout.textContent = HINT;
+  });
+}
+
+function drawLoupe(ctx, loupe, p){
+  if(!srcCanvas) return;
+  loupe.style.display = "block";
+  const span = 40; // source px window
+  const sx = p.x/100*natW - span/2, sy = p.y/100*natH - span/2;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0,0,264,264);
+  ctx.drawImage(srcCanvas, sx, sy, span, span, 0, 0, 264, 264);
+}
+
+/* ---------- points ---------- */
+function addPoint(x, y){
+  seq++;
+  const id = "site" + seq;
+  points.push({ id, name:"새 사업장", x:rnd(x), y:rnd(y), icon:"plaza", tone:"cyan", primary:false, href:`pages/${id}.html` });
+  selId = id;
+  render();
+}
+function delPoint(id){ points = points.filter(p=>p.id!==id); if(selId===id) selId=null; render(); }
+function updPoint(id, key, val){ const p=points.find(p=>p.id===id); if(p){ p[key]=val; render(); } }
+
+document.getElementById("btnClear").onclick = ()=>{ if(points.length && confirm("모든 좌표를 지울까요?")){ points=[]; selId=null; render(); } };
+
+window.addEventListener("keydown", e=>{
+  if((e.key==="Delete"||e.key==="Backspace") && selId){
+    const t=(e.target.tagName||"").toLowerCase();
+    if(t!=="input" && t!=="textarea" && t!=="select"){ e.preventDefault(); delPoint(selId); }
+  }
+});
+
+/* ---------- render ---------- */
+function render(){
+  layoutImg();
+  renderMarkers();
+  renderList();
+  renderOutput();
+  updateZoomPct();
+  btnCopy.disabled = points.length===0;
+  btnClear.disabled = points.length===0 && !imgEl;
+}
+
+function renderMarkers(){
+  const layer = document.getElementById("mklayer");
+  if(!layer) return;
+  layer.innerHTML = "";
+  const d = disp();
+  points.forEach((p,i)=>{
+    const t = TONES[p.tone] || TONES.cyan;
+    const el = document.createElement("div");
+    el.className = "mk" + (p.id===selId ? " sel":"");
+    if(d){ el.style.left = (d.left + d.width*p.x/100)+"px"; el.style.top = (d.top + d.height*p.y/100)+"px"; }
+    el.style.borderColor = t.ring;
+    el.style.width = sz.bubble + "px"; el.style.height = sz.bubble + "px";
+    el.innerHTML = `${iconSvg(p.icon, t.icon, sz.icon)}<span class="tag" style="background:${p.primary?'#00A8E1':'#003876'};font-size:${sz.text}px">${i+1}. ${escapeHtml(p.name)}</span><span class="ctr"></span>`;
+    el.title = `${p.name} (x:${p.x}, y:${p.y})`;
+    el.addEventListener("pointerdown", ev=>{ ev.stopPropagation(); startDrag(ev, p.id); });
+    layer.appendChild(el);
+  });
+}
+
+function startDrag(ev, id){
+  ev.preventDefault();
+  selId = id; render();
+  const move = e=>{
+    const r = imgEl.getBoundingClientRect();
+    const x = clamp((e.clientX - r.left)/r.width*100);
+    const y = clamp((e.clientY - r.top)/r.height*100);
+    const p = points.find(p=>p.id===id);
+    p.x = rnd(x); p.y = rnd(y);
+    render();
+  };
+  const up = ()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
+
+function renderList(){
+  listEl.innerHTML = "";
+  points.forEach((p,i)=>{
+    const t = TONES[p.tone] || TONES.cyan;
+    const row = document.createElement("div");
+    row.className = "row" + (p.id===selId?" sel":"");
+    row.onclick = ()=>{ if(selId!==p.id){ selId=p.id; render(); } };
+    row.innerHTML = `
+      <div class="top">
+        <span class="num" style="background:${t.ring}">${i+1}</span>
+        <input class="nm" data-k="name" value="${escapeAttr(p.name)}" />
+        <button class="del" title="삭제">×</button>
+      </div>
+      <div class="grid">
+        <div><label>x (%)</label><input data-k="x" type="number" step="0.1" min="0" max="100" value="${p.x}"/></div>
+        <div><label>y (%)</label><input data-k="y" type="number" step="0.1" min="0" max="100" value="${p.y}"/></div>
+        <div><label>아이콘</label><select data-k="icon">${ICONS.map(ic=>`<option value="${ic.k}" ${ic.k===p.icon?"selected":""}>${ic.ko} (${ic.k})</option>`).join("")}</select></div>
+        <div><label>색상 tone</label><select data-k="tone">${Object.keys(TONES).map(tn=>`<option value="${tn}" ${tn===p.tone?"selected":""}>${tn}</option>`).join("")}</select></div>
+        <div class="full"><label>id</label><input data-k="id" value="${escapeAttr(p.id)}"/></div>
+        <div class="full"><label>href</label><input data-k="href" value="${escapeAttr(p.href)}"/></div>
+      </div>
+      <label class="chk"><input type="checkbox" data-k="primary" ${p.primary?"checked":""}/> primary (강조 마커)</label>`;
+
+    row.querySelector(".del").onclick = (e)=>{ e.stopPropagation(); delPoint(p.id); };
+    row.querySelectorAll("[data-k]").forEach(inp=>{
+      const k = inp.dataset.k;
+      const evName = (inp.tagName==="SELECT"||inp.type==="checkbox") ? "change" : "input";
+      inp.addEventListener(evName, ()=>{
+        let v;
+        if(inp.type==="checkbox") v = inp.checked;
+        else if(k==="x"||k==="y") v = clamp(parseFloat(inp.value)||0);
+        else v = inp.value;
+        // mutate without full re-render for text fields to keep caret
+        const obj = points.find(o=>o.id===p.id);
+        obj[k] = v;
+        renderMarkers(); renderOutput();
+        if(k==="x"||k==="y"||k==="tone"||k==="primary") { /* visual changed */ }
+      });
+    });
+    listEl.appendChild(row);
+  });
+}
+
+function renderOutput(){
+  outEl.value = points.length ? toCode() : "";
+}
+function toCode(){
+  const lines = points.map(p=>{
+    const prim = p.primary ? " primary:true," : "";
+    return `  { id:"${p.id}", name:"${p.name}", x:${p.x}, y:${p.y}, icon:"${p.icon}", tone:"${p.tone}",${prim} href:"${p.href}" },`;
+  });
+  const marker = `const MARKER = { bubble:${sz.bubble}, icon:${sz.icon}, text:${sz.text} };`;
+  return marker + "\nconst JUAM_REG_SITES = [\n" + lines.join("\n") + "\n];";
+}
+
+/* ---------- size controls ---------- */
+function bindSize(){
+  [["szBubble","bubble"],["szIcon","icon"],["szText","text"]].forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    const out = document.getElementById(id + "V");
+    el.addEventListener("input", ()=>{
+      sz[key] = parseFloat(el.value);
+      out.textContent = el.value;
+      renderMarkers();
+      renderOutput();
+    });
+  });
+}
+bindSize();
+
+btnCopy.onclick = async ()=>{
+  try{ await navigator.clipboard.writeText(outEl.value); toast("코드를 복사했어요"); }
+  catch{ outEl.select(); document.execCommand("copy"); toast("코드를 복사했어요"); }
+};
+
+/* ---------- utils ---------- */
+function clamp(v){ return Math.max(0, Math.min(100, v)); }
+function rnd(v){ return Math.round(v*10)/10; }
+function fmt(v){ return (Math.round(v*10)/10).toFixed(1); }
+function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function escapeAttr(s){ return String(s).replace(/"/g,"&quot;"); }
+let toastT;
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove("show"),1600); }
+</script>
+</body>
+</html>
