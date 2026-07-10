@@ -11,3 +11,9 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+
+# Claude Code local config
+.claude/
+
+# Oversized SOG asset (exceeds GitHub 100MB limit)
+pages/assets/(섬진강)달무리공원sog.js

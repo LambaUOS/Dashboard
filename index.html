@@ -151,7 +151,7 @@ const HEADQUARTERS = [
     dams:[
       { id:"juam",       name:"주암댐",       status:"map-soon" },
       { id:"juam-reg",   name:"주암조절지댐", status:"map", mapKey:"juam-reg" },
-      { id:"seomjin",    name:"섬진강댐",     status:"map-soon" },
+      { id:"sumjingang",    name:"섬진강댐",     status:"map", mapKey:"sumjingang" },
       { id:"jangheong",  name:"장흥댐",       status:"map", mapKey:"jangheong" },
       { id:"pyeongrim",  name:"평림댐",       status:"map", mapKey:"pyeongrim" },
       { id:"sueo",       name:"수어댐",       status:"map-soon" },
@@ -204,12 +204,12 @@ const MUSEUM_INFO = {
 };
 
 const JUAM_REG_SITES = [
-  { id:"site4", name:"주암조절지댐", x:72.4, y:88.5, icon:"dam", tone:"cyan", primary:true, href:"pages/주암조절지댐.html" },
-  { id:"site2", name:"댐좌안광장", x:70.6, y:83.7, icon:"plaza", tone:"plum", href:"pages/좌안광장.html" },
-  { id:"site1", name:"물문화관", x:69.1, y:87.2, icon:"building", tone:"forest", href:"pages/물문화관.html", info:MUSEUM_INFO },
-  { id:"site6", name:"주암댐지사", x:79.6, y:89.4, icon:"building", tone:"cyan", primary:true, href:"pages/주암댐지사.html" },
-  { id:"site8", name:"유출구연직갱", x:15.2, y:26.6, icon:"mine", tone:"coral", href:"pages/유출구연직갱.html" },
-  { id:"site9", name:"사토장 #가", x:25.4, y:8.2, icon:"mine", tone:"slate", href:"pages/사토장.html" },
+  { id:"site4", name:"주암조절지댐", x:72.4, y:88.5, icon:"dam", tone:"cyan", primary:true, href:"pages/주암조절지댐.html", shotDate:"0000년 00월 00일" },
+  { id:"site2", name:"댐좌안광장", x:70.6, y:83.7, icon:"plaza", tone:"plum", href:"pages/viewer.html?site=(주암)좌안광장", shotDate:"2026년 06월 05일" },
+  { id:"site1", name:"물문화관", x:69.1, y:87.2, icon:"building", tone:"forest", href:"pages/viewer.html?site=(주암)물문화관", info:MUSEUM_INFO, shotDate:"2026년 05월 13일" },
+  { id:"site6", name:"주암댐지사", x:79.6, y:89.4, icon:"building", tone:"cyan", primary:true, href:"pages/주암댐지사.html", shotDate:"0000년 00월 00일" },
+  { id:"site8", name:"유출구연직갱", x:15.2, y:26.6, icon:"mine", tone:"coral", href:"pages/유출구연직갱.html", shotDate:"0000년 00월 00일" },
+  { id:"site9", name:"사토장 #가", x:25.4, y:8.2, icon:"mine", tone:"slate", href:"pages/사토장.html", shotDate:"0000년 00월 00일" },
 ];
 
 
@@ -248,20 +248,26 @@ const ROSEPARK_INFO = {
 };
 
 const PYEONGRIM_SITES = [
-  { id:"site1", name:"장미공원", x:51.3, y:79, icon:"park", tone:"forest", href:"pages/장미공원.html", info:ROSEPARK_INFO },
-  { id:"site2", name:"평림댐", x:54, y:54.7, icon:"dam", tone:"cyan", primary:true, href:"pages/평림댐.html" },
-  { id:"site3", name:"평림댐우안산책로", x:27.1, y:28.3, icon:"road", tone:"slate", href:"pages/평림댐우안산책로.html" },
+  { id:"site1", name:"장미공원", x:51.3, y:79, icon:"park", tone:"forest", href:"pages/viewer.html?site=(평림)장미공원", info:ROSEPARK_INFO, shotDate:"2026년 05월 14일" },
+  { id:"site2", name:"평림댐", x:54, y:54.7, icon:"dam", tone:"cyan", primary:true, href:"pages/평림댐.html", shotDate:"0000년 00월 00일" },
+  { id:"site3", name:"평림댐우안산책로", x:27.1, y:28.3, icon:"road", tone:"slate", href:"pages/평림댐우안산책로.html", shotDate:"0000년 00월 00일" },
 ];
 
 /* 장흥댐 일원 데이터 */
 const JANGHEONG_SITES = [
-  { id:"site1", name:"물문화관", x:61.7, y:83.7, icon:"building", tone:"forest", href:"pages/(장흥)물문화관.html" },
-  { id:"site2", name:"우안녹지", x:63.8, y:88.9, icon:"park", tone:"forest", href:"pages/(장흥)우안녹지.html" },
-  { id:"site3", name:"옴천 인공습지", x:11.9, y:85.7, icon:"park", tone:"forest", href:"pages/(옴천)인공습지.html" },
-  { id:"site4", name:"용문 인공습지", x:74.9, y:19, icon:"park", tone:"forest", href:"pages/(용문)인공습지.html" },
-  { id:"site5", name:"신풍 인공습지", x:27.4, y:13.8, icon:"park", tone:"forest", href:"pages/(신풍)인공습지.html" },
-  { id:"site6", name:"신풍지구 수변생태벨트", x:22.8, y:13.7, icon:"park", tone:"forest", href:"pages/(신풍지구)수변생태벨트.html" },
+  { id:"site1", name:"물문화관", x:61.7, y:83.7, icon:"building", tone:"forest", href:"pages/viewer.html?site=(장흥)물문화관", shotDate:"2026년 06월 30일" },
+  { id:"site2", name:"우안녹지", x:63.8, y:88.9, icon:"park", tone:"forest", href:"pages/viewer.html?site=(장흥)우안녹지", shotDate:"2026년 06월 30일" },
+  { id:"site3", name:"옴천 인공습지", x:11.9, y:85.7, icon:"park", tone:"forest", href:"pages/(옴천)인공습지.html", shotDate:"0000년 00월 00일" },
+  { id:"site4", name:"용문 인공습지", x:74.9, y:19, icon:"park", tone:"forest", href:"pages/(용문)인공습지.html", shotDate:"0000년 00월 00일" },
+  { id:"site5", name:"신풍 인공습지", x:27.4, y:13.8, icon:"park", tone:"forest", href:"pages/(신풍)인공습지.html", shotDate:"0000년 00월 00일" },
+  { id:"site6", name:"신풍지구 수변생태벨트", x:22.8, y:13.7, icon:"park", tone:"forest", href:"pages/(신풍지구)수변생태벨트.html", shotDate:"0000년 00월 00일" },
 ];
+
+const SUMJINGANG_SITES = [
+  { id:"site1", name:"달무리공원", x:53.5, y:91.8, icon:"park", tone:"forest", href:"pages/viewer.html?site=(섬진강)달무리공원", shotDate:"2026년 07월 07일"},
+  { id:"site2", name:"물문화관", x:53.8, y:15.5, icon:"building", tone:"cyan", href:"pages/site2.html" },
+];
+
 
 const MAPS = {
   "juam-reg": {
@@ -280,6 +286,12 @@ const MAPS = {
     src: "assets/장흥댐 일원.png",
     title: "장흥댐 사업장 배치도",
     sites: JANGHEONG_SITES,
+  },
+
+  "sumjingang": {
+    src: "assets/섬진강댐.png",
+    title: "섬진강댐 사업장 배치도",
+    sites: SUMJINGANG_SITES,
   }
 
 };
@@ -554,6 +566,9 @@ function MapCanvas({ dam, map }){
   useEffect(()=>{ panRef.current = pan; }, [pan]);
   useEffect(()=>{ baseRef.current = base; }, [base]);
 
+  // 다른 댐을 선택하면 열려있던 3D 모달을 자동으로 닫는다
+  useEffect(() => { setOpenSite(null); }, [dam?.id]);
+
   // ESC to close modal
   useEffect(() => {
     if(!openSite) return;
@@ -721,7 +736,7 @@ function SiteModal({ site, onClose }){
                 {site.name}
               </div>
               <div className="text-[10.5px] font-medium truncate" style={{color:"var(--kw-ink-3)"}}>
-                {site.href}
+                촬영날짜 : {site.shotDate || "미등록"}
               </div>
             </div>
           </div>
